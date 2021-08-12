@@ -1017,6 +1017,41 @@
     }
 
 
+    generateOutputSlicesV3 = (outVolumeTensor) => {
+        let isPostProcessEnable =  document.getElementById("postProcessing").checked;
+
+        let unstackOutVolumeTensor = tf.unstack(outVolumeTensor)
+        console.log("Converting unstack tensors to arrays: ")
+
+
+        for(sliceTensorIdx = 0; sliceTensorIdx < unstackOutVolumeTensor.length; sliceTensorIdx++ ) {
+            allOutputSlices[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
+            allOutputSlices2DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
+            allOutputSlices3DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
+        }
+
+
+
+        if(isPostProcessEnable) {
+            // console.log("wait postprocessing slices");
+            document.getElementById("postProcessHint").innerHTML =   "Post processing status => 2D Connected Comp:  " + " In progress".fontcolor("red").bold();
+            allOutputSlices2DCC = postProcessSlices(allOutputSlices2DCC); // remove noisy regions using 2d CC
+            document.getElementById("postProcessHint").innerHTML =  "postprocessing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp: " + " In progress".fontcolor("red").bold()
+            allOutputSlices3DCC = postProcessSlices3D(allOutputSlices3DCC); // remove noisy regions using 3d CC
+            document.getElementById("postProcessHint").innerHTML =  "Post processing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp : " + " Ok".fontcolor("green").bold()
+        }
+
+        // draw output canvas
+        let outCanvas = document.getElementById('outputCanvas');
+        let output2dCC = document.getElementById('out2dCC');
+        let output3dCC = document.getElementById('out3dCC');
+        let slider = document.getElementById('sliceNav');
+        drawOutputCanvas(outCanvas, slider.value, niftiHeader, niftiImage, allOutputSlices);
+        drawOutputCanvas(output2dCC, slider.value, niftiHeader, niftiImage, allOutputSlices2DCC);
+        drawOutputCanvas(output3dCC, slider.value, niftiHeader, niftiImage, allOutputSlices3DCC);
+    }
+
+
     generateOutputSlices = (allPredictions, num_of_slices, slice_height, slice_width, batch_D, batch_H, batch_W) => {
         console.log("version 1");
 	// buffer set ( depth, H, W) in order
@@ -1171,6 +1206,16 @@
         return coords;
     };
 
+    plusAddSubCube = (endBuffer, subcube, location) => {
+        let cube = tensor2Buffer(subcube)
+        for (let x = 0; x < cube.shape[0]; x++) {
+            for (let y = 0; y < cube.shape[1]; y++) {
+                for (let z = 0; z < cube.shape[2]; z++) {
+                    let idx = cube.get(0, x, y, z, 0);
+                    let v = endBuffer.get(location[0]+x, location[1]+y, location[2]+z, idx);
+                    endBuffer.set(v+1, location[0]+x, location[1]+y, location[2]+z, idx);
+                }}}
+    };
 
     runInference = () => {
 
@@ -1239,7 +1284,7 @@
 	    // model.summary();
 
 	    let allPredictions = [];
-
+            let resultCube = tf.zeros([256,256,256,3]).bufferSync();
 	    model.then(function (res) {
 
 	        try {
@@ -1256,13 +1301,15 @@
 	                tf.dispose(curTensor);
 	                let axis = -1;
 	                let prediction_argmax = tf.argMax(prediction, axis);
-                        allPredictions.push({"id": headSubCubesCoords[j].id, "coordinates": headSubCubesCoords[j], "data": Array.from(prediction_argmax.dataSync()) })
+                        plusAddSubCube(resultCube, prediction_argmax, headSubCubesCoords[j]);
+                        //allPredictions.push({"id": headSubCubesCoords[j].id, "coordinates": headSubCubesCoords[j], "data": Array.from(prediction_argmax.dataSync()) })
 
                         let curBatchMaxLabel =  Math.max(...Array.from(prediction_argmax.dataSync()));
                         if( maxLabelPredicted < curBatchMaxLabel ) {
                             maxLabelPredicted = curBatchMaxLabel;
                         }
-
+                        prediction_argmax.dispose();
+                        prediction.dispose();
 	                tf.engine().endScope()
 
 
@@ -1289,7 +1336,12 @@
 
                             let numSegClasses = maxLabelPredicted + 1;
                             // Generate output volume or slices
-	                    generateOutputSlicesV2(allPredictions, num_of_slices, numSegClasses, slice_height, slice_width, batch_D, batch_H, batch_W);
+	                    //generateOutputSlicesV2(allPredictions, num_of_slices, numSegClasses, slice_height, slice_width, batch_D, batch_H, batch_W);
+                            console.log(resultCube.shape);
+                            let rC = resultCube.toTensor();
+                            console.log('rC: ', rC.shape);
+                            let resultCube_argmax = tf.argMax(rC, -1);
+                            generateOutputSlicesV3(resultCube_argmax);
                             // generateOutputSlices(allPredictions, num_of_slices, slice_height, slice_width, batch_D, batch_H, batch_W);
 
 	                    let stopTime = performance.now();
