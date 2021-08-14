@@ -739,25 +739,9 @@
 
       let bgLabelValue = parseInt(document.getElementById("bgLabelId").value);
 
-//      let grey = new Array(outputSlices.length).fill(0).map(() => new Array(outputSlices[0].length).fill(0));
-      let binaryMaskData1D = [];
-      let binaryMaskData2D = [];
-      let maxAreaLabel = [];
       let label3D = [];
 
-      for(let sliceIdx = 0; sliceIdx < outputSlices.length; sliceIdx++) {
-
-	          binaryMaskData1D[sliceIdx] = getBinaryMaskData1D(outputSlices[sliceIdx]); // binaryMaskData1D has values 0 or 1
-
-	          binaryMaskData2D[sliceIdx] = convertBinaryDataTo2D(binaryMaskData1D[sliceIdx], sliceHeight, sliceWidth);
-
-	          if(sliceIdx == 0) {
-	              label3D[sliceIdx] = getConComponentsFor2D(binaryMaskData2D[sliceIdx], sliceHeight, sliceWidth);
-	          } else {
-	              label3D[sliceIdx] = getConComponentsFor3D(binaryMaskData2D[sliceIdx], label3D[sliceIdx - 1], sliceHeight, sliceWidth);
-	          }
-
-      }
+      label3D = getConComponentsFor3DVolume(outputSlices, sliceHeight, sliceWidth);
 
       let maxVolumeLabel =  getMaxVolumeLabel3D(label3D, sliceHeight, sliceWidth, outputSlices.length);
 
@@ -790,7 +774,6 @@
 
      return outputSlices;
   }
-
 
 
    postProcessSlices2D = (outputSlices) => {
@@ -847,6 +830,83 @@
      return outputSlices;
   }
 
+        // Find CC for each 2 slices in row such that each pixel in the bottom slice check same xy pixel label in prev slice.
+    getConComponentsFor2Slices = (binaryMaskData2D, preSliceLabels, imgHeight, imgWidth) => {
+        let label1D = [];
+        // resetEquivalenceTable();
+        for(let idx = 0; idx < imgHeight * imgWidth; idx++) {
+             label1D[idx] = 0;
+        }
+
+        let label2D =   convertBinaryDataTo2D(label1D, imgHeight, imgWidth);
+        // let maxLabel = 0;
+        for(let row = 0; row < imgHeight; row++) {
+            for(let col = 0; col < imgWidth; col++) {
+
+               if( binaryMaskData2D[row][col] != 0) {
+                  label2D[row][col] = checkNeighbors3D(label2D, preSliceLabels[row][col], row, col, maxLabel)
+                  if(maxLabel < label2D[row][col]) {
+                     maxLabel = label2D[row][col];
+                  }
+
+               }
+            }
+        }
+
+        // console.log("First pass label2D :", label2D);
+        for(let labelIdx = equivalenceTabel.length - 1; labelIdx > 0; labelIdx = labelIdx-1 ) {
+            adjustEquivalenceTable (labelIdx);
+        }
+
+        for(let row = 0; row < imgHeight; row++) {
+            for(let col = 0; col < imgWidth; col++) {
+
+               if( label2D[row][col] != 0) {
+                    label2D[row][col] = equivalenceTabel[label2D[row][col]];
+               }
+            }
+        }
+
+        return   label2D;
+    }
+
+        // Find 3D CC for whole volume or 3d Shape
+    getConComponentsFor3DVolume = (outputSlices, sliceHeight, sliceWidth) => {
+
+          let binaryMaskData1D = [];
+          let binaryMaskData2D = [];
+          let label3D = [];
+
+          for(let sliceIdx = 0; sliceIdx < outputSlices.length; sliceIdx++) {
+
+                binaryMaskData1D[sliceIdx] = getBinaryMaskData1D(outputSlices[sliceIdx]); // binaryMaskData1D has values 0 or 1
+
+                binaryMaskData2D[sliceIdx] = convertBinaryDataTo2D(binaryMaskData1D[sliceIdx], sliceHeight, sliceWidth);
+
+                if(sliceIdx == 0) {
+                    label3D[sliceIdx] = getConComponentsFor2D(binaryMaskData2D[sliceIdx], sliceHeight, sliceWidth);
+
+                } else {
+                    label3D[sliceIdx] = getConComponentsFor2Slices(binaryMaskData2D[sliceIdx], label3D[sliceIdx - 1], sliceHeight, sliceWidth);
+                }
+
+          }
+
+          // 3d cc third pass
+          for(let sliceIdx = 0; sliceIdx < outputSlices.length; sliceIdx++) {
+              let row, col;
+              for(row = 0; row < sliceHeight; row++) {
+                  for(col = 0; col < sliceWidth; col++) {
+
+                     if( label3D[sliceIdx][row][col] != 0) {
+                          label3D[sliceIdx][row][col] = equivalenceTabel[label3D[sliceIdx][row][col]];
+                     }
+                  }
+              }
+          }
+
+          return  label3D;
+    }
 
     ///////////////******************************************************************////////////////////
 
@@ -1211,7 +1271,7 @@
         for (let x = 0; x < cube.shape[0]; x++) {
             for (let y = 0; y < cube.shape[1]; y++) {
                 for (let z = 0; z < cube.shape[2]; z++) {
-                    let idx = cube.get(0, x, y, z, 0);
+                    let idx = cube.get(0, x, y, z);
                     let v = endBuffer.get(location[0]+x, location[1]+y, location[2]+z, idx);
                     endBuffer.set(v+1, location[0]+x, location[1]+y, location[2]+z, idx);
                 }}}
@@ -1271,9 +1331,11 @@
 
             let allBatches;
             let num_of_Overlap_batches = parseInt(document.getElementById("numOverlapBatchesId").value);
-            let headSubCubesCoords = cloud(num_of_Overlap_batches, moments[0], moments[1], slices_3d.shape[0], 38);
-            let gridCoords = grid(slices_3d.shape[0], 38);
-            headSubCubesCoords = headSubCubesCoords.concat(gridCoords);
+            let headSubCubesCoords = grid(slices_3d.shape[0], 38);
+            if(isBatchOverlapEnable) {
+                let cloudCoords = cloud(num_of_Overlap_batches, moments[0], moments[1], slices_3d.shape[0], 38);
+                headSubCubesCoords = headSubCubesCoords.concat(cloudCoords);
+            }
 
             allBatches = headSubCubesCoords;
 
@@ -1284,7 +1346,6 @@
 	    // model.summary();
 
 	    let allPredictions = [];
-            let resultCube = tf.zeros([256,256,256,3]).bufferSync();
 	    model.then(function (res) {
 
 	        try {
@@ -1293,6 +1354,7 @@
                     let maxLabelPredicted = 0;
 
 	            let j = 0;
+                    let resultCube = tf.buffer([256,256,256,3]);
 	            let timer = window.setInterval(function() {
 
 	                tf.engine().startScope()
@@ -1302,8 +1364,6 @@
 	                let axis = -1;
 	                let prediction_argmax = tf.argMax(prediction, axis);
                         plusAddSubCube(resultCube, prediction_argmax, headSubCubesCoords[j]);
-                        //allPredictions.push({"id": headSubCubesCoords[j].id, "coordinates": headSubCubesCoords[j], "data": Array.from(prediction_argmax.dataSync()) })
-
                         let curBatchMaxLabel =  Math.max(...Array.from(prediction_argmax.dataSync()));
                         if( maxLabelPredicted < curBatchMaxLabel ) {
                             maxLabelPredicted = curBatchMaxLabel;
@@ -1316,7 +1376,7 @@
 
 	                let memStatus = tf.memory().unreliable ? "Red" : "Green";
 	                let unreliableReasons  =  tf.memory().unreliable ?    "unreliable reasons :" + tf.memory().reasons.fontcolor("red").bold() : "";
-	                document.getElementById("completed").innerHTML = "Batches completed:  " + (j+1) + " / " + allBatches.length +
+	                document.getElementById("completed").innerHTML = "Batches completed:  " + (j+1) + " / " + headSubCubesCoords.length +
 	                    // https://js.tensorflow.org/api/latest/#memory
 	                "<br><br>" +"TF Memory Status: " + memStatus.fontcolor(tf.memory().unreliable ? "red" : "green").bold()  +
 	                    // numBytes: Number of bytes allocated (undisposed) at this time
@@ -1339,7 +1399,6 @@
 	                    //generateOutputSlicesV2(allPredictions, num_of_slices, numSegClasses, slice_height, slice_width, batch_D, batch_H, batch_W);
                             console.log(resultCube.shape);
                             let rC = resultCube.toTensor();
-                            console.log('rC: ', rC.shape);
                             let resultCube_argmax = tf.argMax(rC, -1);
                             generateOutputSlicesV3(resultCube_argmax);
                             // generateOutputSlices(allPredictions, num_of_slices, slice_height, slice_width, batch_D, batch_H, batch_W);
