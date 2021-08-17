@@ -943,8 +943,6 @@
         let moments = tf.moments(coordsTensor, 0, false);
         let meanArray = Array.from(tf.round(moments['mean']).dataSync());
         let varArray = Array.from(moments['variance'].dataSync());
-        console.log('mean:', meanArray);
-        console.log('variance:', varArray);
         coordsTensor.dispose();
         return [meanArray, varArray];
     };
@@ -1008,76 +1006,7 @@
 
 
     // Find current voxel value of the related seg class buffer, if we have numSegClasses = 3 then we have 3 buffers, one for each seg classes 0, 1, 2
-    generateOutputSlicesV2 = (allPredictions, num_of_slices, numSegClasses, slice_height, slice_width, batch_D, batch_H, batch_W) => {
-
-        console.log("version 2 num of seg classes: ", numSegClasses);
-        // buffer set ( depth, H, W) in order
-        let outVolumeBuffer =  tf.buffer([num_of_slices, slice_height, slice_width, numSegClasses ], dtype=tf.float32)
-        let isPostProcessEnable =  document.getElementById("postProcessing").checked;
-
-
-        for(batchIdx = 0; batchIdx < allPredictions.length; batchIdx += 1) {
-
-            let coord = allPredictions[batchIdx]["coordinates"];
-            let pixelValues = allPredictions[batchIdx]["data"];
-            let pixelValuesCounter = 0;
-
-            for(depthIdx = coord[0]; depthIdx < (batch_D + coord[0]); depthIdx += 1) {
-                for(rowIdx = coord[1]; rowIdx < (batch_H + coord[1]); rowIdx += 1) {
-                    for(colIdx = coord[2]; colIdx < (batch_W + coord[2]); colIdx += 1) {
-                        // Find current voxel value of the related seg class buffer
-                        // if we have numSegClasses = 3 then we have 3 buffers, one for each seg classes 0, 1, 2
-                        let voxelValue = outVolumeBuffer.get(depthIdx, rowIdx, colIdx, pixelValues[pixelValuesCounter] );
-                        // increment current voxel value by 1 in the current class buffer
-                        outVolumeBuffer.set(voxelValue + 1, depthIdx, rowIdx, colIdx, pixelValues[pixelValuesCounter] );
-
-                        pixelValuesCounter += 1;
-                    }
-                }
-            }
-        }
-
-        // convert output  buffer to tensor
-        let axis = -1; // last axis
-        // Set for each voxel the value of the index of the buffer that has the max voxel value, e.g. third buffer with index = 2 (cont..)
-        // has max voxel value = 10 then the related voxel in outVolumeTensor will have value of 2
-        let outVolumeTensor = tf.argMax(outVolumeBuffer.toTensor(), axis);
-
-
-        let unstackOutVolumeTensor = tf.unstack(outVolumeTensor)
-
-        console.log("Converting unstack tensors to arrays: ")
-
-
-        for(sliceTensorIdx = 0; sliceTensorIdx < unstackOutVolumeTensor.length; sliceTensorIdx++ ) {
-            allOutputSlices[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices2DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices3DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-        }
-
-
-
-        if(isPostProcessEnable) {
-            // console.log("wait postprocessing slices");
-            document.getElementById("postProcessHint").innerHTML =   "Post processing status => 2D Connected Comp:  " + " In progress".fontcolor("red").bold();
-            allOutputSlices2DCC = postProcessSlices(allOutputSlices2DCC); // remove noisy regions using 2d CC
-            document.getElementById("postProcessHint").innerHTML =  "postprocessing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp: " + " In progress".fontcolor("red").bold()
-            allOutputSlices3DCC = postProcessSlices3D(allOutputSlices3DCC); // remove noisy regions using 3d CC
-            document.getElementById("postProcessHint").innerHTML =  "Post processing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp : " + " Ok".fontcolor("green").bold()
-        }
-
-        // draw output canvas
-        let outCanvas = document.getElementById('outputCanvas');
-        let output2dCC = document.getElementById('out2dCC');
-        let output3dCC = document.getElementById('out3dCC');
-        let slider = document.getElementById('sliceNav');
-        drawOutputCanvas(outCanvas, slider.value, niftiHeader, niftiImage, allOutputSlices);
-        drawOutputCanvas(output2dCC, slider.value, niftiHeader, niftiImage, allOutputSlices2DCC);
-        drawOutputCanvas(output3dCC, slider.value, niftiHeader, niftiImage, allOutputSlices3DCC);
-    }
-
-
-    generateOutputSlicesV3 = (outVolumeTensor) => {
+    generateOutputSlices = (outVolumeTensor) => {
         let isPostProcessEnable =  document.getElementById("postProcessing").checked;
 
         let unstackOutVolumeTensor = tf.unstack(outVolumeTensor)
@@ -1111,63 +1040,6 @@
         drawOutputCanvas(output3dCC, slider.value, niftiHeader, niftiImage, allOutputSlices3DCC);
     }
 
-
-    generateOutputSlices = (allPredictions, num_of_slices, slice_height, slice_width, batch_D, batch_H, batch_W) => {
-        console.log("version 1");
-	// buffer set ( depth, H, W) in order
-	let outVolumeBuffer =  tf.buffer([num_of_slices, slice_height, slice_width], dtype=tf.float32)
-        let isPostProcessEnable =  document.getElementById("postProcessing").checked;
-
-
-	for(batchIdx = 0; batchIdx < allPredictions.length; batchIdx += 1) {
-
-	    let coord = allPredictions[batchIdx]["coordinates"]
-	    let pixelValues = allPredictions[batchIdx]["data"]
-	    let pixelValuesCounter = 0;
-
-	    for(depthIdx = coord[0]; depthIdx < (batch_D + coord[0]); depthIdx += 1) {
-	        for(rowIdx = coord[1]; rowIdx < (batch_H + coord[1]); rowIdx += 1) {
-	            for(colIdx = coord[2]; colIdx < (batch_W + coord[2]); colIdx += 1) {
-	                outVolumeBuffer.set(pixelValues[pixelValuesCounter], depthIdx, rowIdx, colIdx );
-	                pixelValuesCounter += 1;
-	            }
-	        }
-	    }
-	}
-
-	// convert output  buffer to tensor
-	let outVolumeTensor =  outVolumeBuffer.toTensor();
-
-	let unstackOutVolumeTensor = tf.unstack(outVolumeTensor)
-
-	console.log("Converting unstack tensors to arrays: ")
-
-
-	for(sliceTensorIdx = 0; sliceTensorIdx < unstackOutVolumeTensor.length; sliceTensorIdx++ ) {
-	    allOutputSlices[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices2DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices3DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-	}
-
-
-        if(isPostProcessEnable) {
-            // console.log("wait postprocessing slices");
-            document.getElementById("postProcessHint").innerHTML =   "Post processing status => 2D Connected Comp:  " + " In progress".fontcolor("red").bold();
-            allOutputSlices2DCC = postProcessSlices(allOutputSlices2DCC); // remove noisy regions using 2d CC
-            document.getElementById("postProcessHint").innerHTML =  "postprocessing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp: " + " In progress".fontcolor("red").bold()
-            allOutputSlices3DCC = postProcessSlices3D(allOutputSlices3DCC); // remove noisy regions using 3d CC
-            document.getElementById("postProcessHint").innerHTML =  "Post processing status => 2D Connected Comp:  " + " Ok".fontcolor("green").bold() + " => 3D Connected Comp : " + " Ok".fontcolor("green").bold()
-        }
-
-	// draw output canvas
-	let outCanvas = document.getElementById('outputCanvas');
-        let output2dCC = document.getElementById('out2dCC');
-        let output3dCC = document.getElementById('out3dCC');
-	let slider = document.getElementById('sliceNav');
-        drawOutputCanvas(outCanvas, slider.value, niftiHeader, niftiImage, allOutputSlices);
-        drawOutputCanvas(output2dCC, slider.value, niftiHeader, niftiImage, allOutputSlices2DCC);
-	drawOutputCanvas(output3dCC, slider.value, niftiHeader, niftiImage, allOutputSlices3DCC);
-    }
 
 
     inputVolumeChange = (val) => {
@@ -1267,13 +1139,14 @@
     };
 
     plusAddSubCube = (endBuffer, subcube, location) => {
-        let cube = tensor2Buffer(subcube)
-        for (let x = 0; x < cube.shape[0]; x++) {
-            for (let y = 0; y < cube.shape[1]; y++) {
-                for (let z = 0; z < cube.shape[2]; z++) {
-                    let idx = cube.get(0, x, y, z);
-                    let v = endBuffer.get(location[0]+x, location[1]+y, location[2]+z, idx);
-                    endBuffer.set(v+1, location[0]+x, location[1]+y, location[2]+z, idx);
+        let data = Array.from(subcube.dataSync())
+        let i = 0
+        for (let x = 0; x < subcube.shape[1]; x++) {
+            for (let y = 0; y < subcube.shape[2]; y++) {
+                for (let z = 0; z < subcube.shape[3]; z++) {
+                    let v = endBuffer.get(location[0]+x, location[1]+y, location[2]+z, data[i]);
+                    endBuffer.set(v+1, location[0]+x, location[1]+y, location[2]+z, data[i]);
+                    i += 1;
                 }}}
     };
 
@@ -1329,15 +1202,12 @@
 
             let moments = cubeMoments(slices_3d, 0.5);
 
-            let allBatches;
             let num_of_Overlap_batches = parseInt(document.getElementById("numOverlapBatchesId").value);
             let headSubCubesCoords = grid(slices_3d.shape[0], 38);
             if(isBatchOverlapEnable) {
                 let cloudCoords = cloud(num_of_Overlap_batches, moments[0], moments[1], slices_3d.shape[0], 38);
                 headSubCubesCoords = headSubCubesCoords.concat(cloudCoords);
             }
-
-            allBatches = headSubCubesCoords;
 
 	    // Load tfjs json model
 	    const model =  load_model();
@@ -1360,15 +1230,15 @@
 	                tf.engine().startScope()
 	                let curTensor = tf.reshape(tf.slice(slices_3d, headSubCubesCoords[j], [38, 38, 38]), input_shape);
 	                let prediction = res.predict( curTensor );
-	                tf.dispose(curTensor);
-	                let axis = -1;
-	                let prediction_argmax = tf.argMax(prediction, axis);
+	                let prediction_argmax = prediction.argMax(-1);
                         plusAddSubCube(resultCube, prediction_argmax, headSubCubesCoords[j]);
+
                         let curBatchMaxLabel =  Math.max(...Array.from(prediction_argmax.dataSync()));
                         if( maxLabelPredicted < curBatchMaxLabel ) {
                             maxLabelPredicted = curBatchMaxLabel;
                         }
                         prediction_argmax.dispose();
+	                tf.dispose(curTensor);
                         prediction.dispose();
 	                tf.engine().endScope()
 
@@ -1391,17 +1261,15 @@
 	                    "<br>" + unreliableReasons ;
 
 
-	                if( j == allBatches.length-1 ){
+	                if( j == headSubCubesCoords.length-1 ){
 	                    window.clearInterval( timer );
 
                             let numSegClasses = maxLabelPredicted + 1;
                             // Generate output volume or slices
-	                    //generateOutputSlicesV2(allPredictions, num_of_slices, numSegClasses, slice_height, slice_width, batch_D, batch_H, batch_W);
-                            console.log(resultCube.shape);
-                            let rC = resultCube.toTensor();
-                            let resultCube_argmax = tf.argMax(rC, -1);
-                            generateOutputSlicesV3(resultCube_argmax);
-                            // generateOutputSlices(allPredictions, num_of_slices, slice_height, slice_width, batch_D, batch_H, batch_W);
+                            let rC = resultCube.toTensor()
+                            let resultCube_argmax = rC.argMax(-1);
+
+                            generateOutputSlices(resultCube_argmax);
 
 	                    let stopTime = performance.now();
 	                    document.getElementById("results").innerHTML ="Processing the whole brain volume in tfjs tooks for multi-class output mask : " +
