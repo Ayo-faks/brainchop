@@ -85,7 +85,7 @@
             "class_name": "Activation",
             "config": {
               "name": "18",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -105,7 +105,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "19",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -158,7 +158,7 @@
             "class_name": "Activation",
             "config": {
               "name": "20",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -178,7 +178,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "21",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -231,7 +231,7 @@
             "class_name": "Activation",
             "config": {
               "name": "22",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -251,7 +251,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "23",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -304,7 +304,7 @@
             "class_name": "Activation",
             "config": {
               "name": "24",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -324,7 +324,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "25",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -377,7 +377,7 @@
             "class_name": "Activation",
             "config": {
               "name": "26",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -397,7 +397,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "27",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -450,7 +450,7 @@
             "class_name": "Activation",
             "config": {
               "name": "28",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -470,7 +470,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "29",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 21,
               "kernel_size": [
@@ -523,7 +523,7 @@
             "class_name": "Activation",
             "config": {
               "name": "30",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "activation": "relu"
             },
@@ -543,7 +543,7 @@
             "class_name": "Conv3D",
             "config": {
               "name": "output",
-              "trainable": true,
+              "trainable": false,
               "dtype": "float32",
               "filters": 3,
               "kernel_size": [

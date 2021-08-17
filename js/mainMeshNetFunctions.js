@@ -982,24 +982,18 @@
 
     load_model = async() => {
 	let modelUrl = './mnm_dropout/model.json';
-        // let modelUrl = './meshnet_dropout/mnm_dropout/model2.json';
 	const Model = await tf.loadLayersModel(modelUrl);
 	return Model;
     }
 
 
     findPixelIndex = (allPixels, d, h, w) => {
-
-        for( pIndex = 0; pIndex < allPixels.length; pIndex++) {
-            if( (allPixels[pIndex]["d"] == d) &&
-                (allPixels[pIndex]["h"] == h) &&
-                (allPixels[pIndex]["w"] == w)  ) {
-
-                return pIndex;
-            }
-
-        }
-
+        for( i = 0; i < allPixels.length; i++) {
+            if( (allPixels[i]["d"] == d) &&
+                (allPixels[i]["h"] == h) &&
+                (allPixels[i]["w"] == w)  ) {
+                return i;
+            }}
         return null;
     }
 
@@ -1008,17 +1002,14 @@
     // Find current voxel value of the related seg class buffer, if we have numSegClasses = 3 then we have 3 buffers, one for each seg classes 0, 1, 2
     generateOutputSlices = (outVolumeTensor) => {
         let isPostProcessEnable =  document.getElementById("postProcessing").checked;
-
         let unstackOutVolumeTensor = tf.unstack(outVolumeTensor)
+
         console.log("Converting unstack tensors to arrays: ")
-
-
-        for(sliceTensorIdx = 0; sliceTensorIdx < unstackOutVolumeTensor.length; sliceTensorIdx++ ) {
-            allOutputSlices[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices2DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
-            allOutputSlices3DCC[sliceTensorIdx] = Array.from(unstackOutVolumeTensor[sliceTensorIdx].dataSync())
+        for(i = 0; i < unstackOutVolumeTensor.length; i++ ) {
+            allOutputSlices[i] = Array.from(unstackOutVolumeTensor[i].dataSync())
+            allOutputSlices2DCC[i] = Array.from(unstackOutVolumeTensor[i].dataSync())
+            allOutputSlices3DCC[i] = Array.from(unstackOutVolumeTensor[i].dataSync())
         }
-
 
 
         if(isPostProcessEnable) {
