@@ -38,4 +38,4 @@ onnx_model = onnx.load('/tmp/mnm_model_large.onnx')
 k_model = onnx_to_keras(onnx_model, ['input'])
 
 tfjs.converters.save_keras_model(k_model, '/tmp/mnm_gmwm_dropout256')
-fixjson_file('/tmp/mnm_gmwm_dropout256/model.json')
+fixjson_file('/tmp/mnm_gmwm_dropout256/model.json', scube=scube)

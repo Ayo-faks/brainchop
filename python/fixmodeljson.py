@@ -4,7 +4,7 @@ import json
 # After saving keras model with ZeroPadding3D as model.json  Modify with this code:
 
 
-def fixjson_file(model_file, verbose=False):
+def fixjson_file(model_file, verbose=False, scube=38):
     # Open json file to modify
     with open(model_file) as f:
         model_dict = json.load(f)
@@ -17,7 +17,7 @@ def fixjson_file(model_file, verbose=False):
     prev_layer_name = ""
     for layer in model_dict['modelTopology']['model_config']['config']['layers']:
         if layer['class_name'] == "InputLayer":
-            layer["config"]["batch_input_shape"] = [None, 64, 64, 64, 1]
+            layer["config"]["batch_input_shape"] = [None, scube, scube, scube, 1]
 
         if layer['class_name'] == "Conv3D":
             layer["config"]["padding"] = "same"
