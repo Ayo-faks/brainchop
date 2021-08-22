@@ -981,7 +981,7 @@
     }
 
     load_model = async() => {
-	let modelUrl = './mnm_dropout/model.json';
+	let modelUrl = './mnm_gmwm_dropout256/model.json';
 	const Model = await tf.loadLayersModel(modelUrl);
 	return Model;
     }
@@ -1090,7 +1090,7 @@
         // Generate coordinates of subcube corners such that they tile the larger cube.
         // Cube side needs to be evenly divisible by subcube side.
         var steps = Math.floor(cubeside/subcubeside); // if the large cube is not evenly divisible
-        var gap = Math.max(Math.ceil(Math.ceil(cubeside/subcubeside) - steps)/2, 1); // make an offset
+        var gap = Math.max(Math.ceil(Math.ceil(cubeside/subcubeside) - steps)/2, 0); // make an offset
         const grid_coords = [];
         var counter = 0;
         for (let x = 0; x < steps; x++) {
@@ -1172,6 +1172,7 @@
 	    let batch_H = 38;
 	    let batch_W = 38;
 
+            let scube = 64;
 	    let slice_width = niftiHeader.dims[1];
 	    let slice_height = niftiHeader.dims[2];
 	    let num_of_slices = niftiHeader.dims[3];
@@ -1180,8 +1181,7 @@
 
 
 
-	    let input_shape = [batchSize, 38, 38, 38, numOfChan];
-
+	    let input_shape = [batchSize, scube, scube, scube, numOfChan];
 
 	    let allSlices = getAllSlicesData1D(num_of_slices);
 
@@ -1194,9 +1194,9 @@
             let moments = cubeMoments(slices_3d, 0.5);
 
             let num_of_Overlap_batches = parseInt(document.getElementById("numOverlapBatchesId").value);
-            let headSubCubesCoords = grid(slices_3d.shape[0], 38);
+            let headSubCubesCoords = grid(slices_3d.shape[0], scube);
             if(isBatchOverlapEnable) {
-                let cloudCoords = cloud(num_of_Overlap_batches, moments[0], moments[1], slices_3d.shape[0], 38);
+                let cloudCoords = cloud(num_of_Overlap_batches, moments[0], moments[1], slices_3d.shape[0], scube);
                 headSubCubesCoords = headSubCubesCoords.concat(cloudCoords);
             }
 
@@ -1215,19 +1215,22 @@
                     let maxLabelPredicted = 0;
 
 	            let j = 0;
+                    let tmp;
                     let resultCube = tf.buffer([256,256,256,3]);
 	            let timer = window.setInterval(function() {
 
 	                tf.engine().startScope()
-	                let curTensor = tf.reshape(tf.slice(slices_3d, headSubCubesCoords[j], [38, 38, 38]), input_shape);
-	                let prediction = res.predict( curTensor );
+	                let curTensor = tf.reshape(tf.slice(slices_3d, headSubCubesCoords[j], [scube, scube, scube]), input_shape);
+
+                        for (let i = 1; i < res.layers.length-1; i++){
+                     	    let prediction = res.layers[i].apply( curTensor );
+                            tmp = curTensor;
+                            curTensor = prediction;
+                            tmp.dispose();
+                        }
+                        prediction = res.layers[res.layers.length-1].apply(curTensor);
 	                let prediction_argmax = prediction.argMax(-1);
                         plusAddSubCube(resultCube, prediction_argmax, headSubCubesCoords[j]);
-
-                        let curBatchMaxLabel =  Math.max(...Array.from(prediction_argmax.dataSync()));
-                        if( maxLabelPredicted < curBatchMaxLabel ) {
-                            maxLabelPredicted = curBatchMaxLabel;
-                        }
                         prediction_argmax.dispose();
 	                tf.dispose(curTensor);
                         prediction.dispose();
@@ -1254,8 +1257,6 @@
 
 	                if( j == headSubCubesCoords.length-1 ){
 	                    window.clearInterval( timer );
-
-                            let numSegClasses = maxLabelPredicted + 1;
                             // Generate output volume or slices
                             let rC = resultCube.toTensor()
                             let resultCube_argmax = rC.argMax(-1);
@@ -1282,6 +1283,7 @@
 	                '<a href="https://support.biodigital.com/hc/en-us/articles/218322977-How-to-turn-on-WebGL-in-my-browser">here</a>'
 	        }
 	    });
+            tf.dispose(model);
 	}
     }
 
