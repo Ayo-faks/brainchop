@@ -340,6 +340,30 @@ async function mri_convert(fileUrl, ver) {
                    img = (img - img.min()) / (img.max() - img.min())
                    return img
 
+               def enhance_contrast(image_matrix, bins=256):
+                   # https://medium.com/analytics-vidhya/image-equalization-contrast-enhancing-in-python-82600d3b371c
+                   image_flattened = image_matrix.flatten()
+                   image_hist = numpy.zeros(bins)
+
+                   # frequency count of each pixel
+                   for pix in image_matrix:
+                       image_hist[pix] += 1
+
+                   # cummulative sum
+                   cum_sum = numpy.cumsum(image_hist)
+                   norm = (cum_sum - cum_sum.min()) * 255
+                   # normalization of the pixel values
+                   n_ = cum_sum.max() - cum_sum.min()
+                   uniform_norm = norm / n_
+                   uniform_norm = uniform_norm.astype('int')
+
+                   # flat histogram
+                   image_eq = uniform_norm[image_flattened]
+                   # reshaping the flattened matrix to its original shape
+                   image_eq = numpy.reshape(a=image_eq, newshape=image_matrix.shape)
+
+                   return image_eq
+
                #--------------------main------------------------#
                print("mriTempUrl:  " + format(js.mriTempUrl))
 
@@ -360,11 +384,7 @@ async function mri_convert(fileUrl, ver) {
                # Input MRI Orientation e.g. LIA ,  RAS or RPS
                print("Input MRI Orientation :  " + format(nibabel.aff2axcodes(input_img.affine)))
 
-               new_img = conform(input_img)
-               orig_ornt = nibabel.io_orientation(new_img.affine)
-               targ_ornt = nibabel.orientations.axcodes2ornt("RAS")
-               transform = nibabel.orientations.ornt_transform(orig_ornt, targ_ornt)
-               new_img = new_img.as_reoriented(transform)
+               new_img = conform(input_img, order=5, orientation="LIA")
 
                # Output MRI shape
                print("Output MRI shape:  " + format(new_img.shape))
@@ -374,9 +394,9 @@ async function mri_convert(fileUrl, ver) {
 
                print("-----------------------------------------------")
 
-               #//------------- Need to scale data ??????------------------//
-               data = preprocess_image(new_img.get_fdata())
-               data = data.astype(numpy.float32)
+               # scaling and histogram equalization
+               data = 255*preprocess_image(new_img.get_fdata())
+               data = preprocess_image(enhance_contrast(data.astype(numpy.uint8)).astype(numpy.float32))
 
                # Globals
                hdr = new_img.header
